@@ -127,6 +127,8 @@ module Fluent
 
     # Internal constants.
     module InternalConstants
+      DEFAULT_LOGGING_API_URL = 'logging.googleapis.com'.freeze
+
       # The label name of local_resource_id in the json payload. When a record
       # has this field in the payload, we will use the value to retrieve
       # monitored resource from Stackdriver Metadata agent.
@@ -323,6 +325,9 @@ module Fluent
                  :default => nil,
                  :secret => true
 
+    # The URL of Stackdriver Logging API.
+    config_param :logging_api_url, :string, :default => DEFAULT_LOGGING_API_URL
+
     # Whether to collect metrics about the plugin usage. The mechanism for
     # collecting and exposing metrics is controlled by the monitoring_type
     # parameter.
@@ -369,6 +374,12 @@ module Fluent
                   ' enabled. The support for partial success in the gRPC path' \
                   ' is to be added in the near future. For now the ' \
                   ' partial_success flag will be ignored.'
+      end
+
+      unless @logging_api_url == DEFAULT_LOGGING_API_URL || @use_grpc
+        @log.warn 'Detected customized logging_api_url while use_grpc is not' \
+                  ' enabled. Customized logging_api_url for the non-gRPC path' \
+                  ' is not supported. The config will be ignored.'
       end
 
       # If monitoring is enabled, register metrics in the default registry
@@ -1774,7 +1785,7 @@ module Fluent
         creds = ssl_creds.compose(creds)
         @client = Google::Cloud::Logging::V2::LoggingServiceV2Client.new(
           channel: GRPC::Core::Channel.new(
-            'logging.googleapis.com', nil, creds))
+            @logging_api_url, nil, creds))
       else
         unless @client.authorization.expired?
           begin
