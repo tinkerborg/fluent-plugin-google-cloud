@@ -325,7 +325,8 @@ module Fluent
                  :default => nil,
                  :secret => true
 
-    # The URL of Stackdriver Logging API.
+    # The URL of Stackdriver Logging API. Right now this only works with the
+    # gRPC path (use_grpc = true).
     config_param :logging_api_url, :string, :default => DEFAULT_LOGGING_API_URL
 
     # Whether to collect metrics about the plugin usage. The mechanism for
@@ -376,10 +377,13 @@ module Fluent
                   ' partial_success flag will be ignored.'
       end
 
+      # TODO(qingling128): Remove this warning after the support is added. Also
+      # remove the comment in the description of this configuration.
       unless @logging_api_url == DEFAULT_LOGGING_API_URL || @use_grpc
         @log.warn 'Detected customized logging_api_url while use_grpc is not' \
                   ' enabled. Customized logging_api_url for the non-gRPC path' \
-                  ' is not supported. The config will be ignored.'
+                  ' is not supported. The logging_api_url option will be' \
+                  ' ignored.'
       end
 
       # If monitoring is enabled, register metrics in the default registry
