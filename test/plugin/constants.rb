@@ -20,7 +20,7 @@ module Constants
 
   # Generic attributes.
   HOSTNAME = Socket.gethostname
-  CUSTOM_LOGGING_API_URL = 'custom.logging.googleapis.com'.freeze
+  CUSTOM_LOGGING_API_URL = 'https://localhost:52000'.freeze
 
   # TODO(qingling128) Separate constants into different submodules.
   # Attributes used for the GCE metadata service.

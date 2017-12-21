@@ -127,7 +127,7 @@ module Fluent
 
     # Internal constants.
     module InternalConstants
-      DEFAULT_LOGGING_API_URL = 'logging.googleapis.com'.freeze
+      DEFAULT_LOGGING_API_URL = 'https://logging.googleapis.com'.freeze
 
       # The label name of local_resource_id in the json payload. When a record
       # has this field in the payload, we will use the value to retrieve
@@ -327,6 +327,9 @@ module Fluent
 
     # The URL of Stackdriver Logging API. Right now this only works with the
     # gRPC path (use_grpc = true).
+    # The default value is: https://logging.googleapis.com.
+    # One common usage of this config is to provide a mocked / stubbed Logging
+    # API. e.g. http://localhost:52000.
     config_param :logging_api_url, :string, :default => DEFAULT_LOGGING_API_URL
 
     # Whether to collect metrics about the plugin usage. The mechanism for
@@ -1789,7 +1792,7 @@ module Fluent
         creds = ssl_creds.compose(creds)
         @client = Google::Cloud::Logging::V2::LoggingServiceV2Client.new(
           channel: GRPC::Core::Channel.new(
-            @logging_api_url, nil, creds))
+            @logging_api_url.sub(%r{^https?\://}, ''), nil, creds))
       else
         unless @client.authorization.expired?
           begin
