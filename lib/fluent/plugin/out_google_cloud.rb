@@ -332,6 +332,11 @@ module Fluent
     # API. e.g. http://localhost:52000.
     config_param :logging_api_url, :string, :default => DEFAULT_LOGGING_API_URL
 
+    # Whether to use a secure channel when talking to the Logging API. This
+    # should only be false if the Stackdriver Logging Agent is set up to talk
+    # to a mocked / stubbed Logging API. Otherwise the requests will fail.
+    config_param :use_secure_channel, :bool, :default => true
+
     # Whether to collect metrics about the plugin usage. The mechanism for
     # collecting and exposing metrics is controlled by the monitoring_type
     # parameter.
@@ -1786,10 +1791,14 @@ module Fluent
 
     def api_client
       if @use_grpc
-        ssl_creds = GRPC::Core::ChannelCredentials.new
-        authentication = Google::Auth.get_application_default
-        creds = GRPC::Core::CallCredentials.new(authentication.updater_proc)
-        creds = ssl_creds.compose(creds)
+        if @use_secure_channel
+          ssl_creds = GRPC::Core::ChannelCredentials.new
+          authentication = Google::Auth.get_application_default
+          creds = GRPC::Core::CallCredentials.new(authentication.updater_proc)
+          creds = ssl_creds.compose(creds)
+        else
+          creds = :this_channel_is_insecure
+        end
         @client = Google::Cloud::Logging::V2::LoggingServiceV2Client.new(
           channel: GRPC::Core::Channel.new(
             @logging_api_url.sub(%r{^https?\://}, ''), nil, creds))

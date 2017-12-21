@@ -226,21 +226,29 @@ class GoogleCloudOutputGRPCTest < Test::Unit::TestCase
   def create_driver(conf = APPLICATION_DEFAULT_CONFIG, tag = 'test')
     conf += USE_GRPC_CONFIG
     Fluent::Test::BufferedOutputTestDriver.new(
-      GoogleCloudOutputWithGRPCMock.new(@grpc_stub), tag).configure(conf, true)
+      GoogleCloudOutputWithGRPCMock.new(
+        @grpc_stub, !conf.include?('use_secure_channel false')
+      ), tag
+    ).configure(conf, true)
   end
 
   # Google Cloud Fluent output stub with grpc mock.
   class GoogleCloudOutputWithGRPCMock < Fluent::GoogleCloudOutput
-    def initialize(grpc_stub)
+    def initialize(grpc_stub, use_secure_channel)
       super()
       @grpc_stub = grpc_stub
+      @use_secure_channel = use_secure_channel
     end
 
     def api_client
-      ssl_creds = GRPC::Core::ChannelCredentials.new
-      authentication = Google::Auth.get_application_default
-      creds = GRPC::Core::CallCredentials.new(authentication.updater_proc)
-      ssl_creds.compose(creds)
+      if @use_secure_channel
+        ssl_creds = GRPC::Core::ChannelCredentials.new
+        authentication = Google::Auth.get_application_default
+        creds = GRPC::Core::CallCredentials.new(authentication.updater_proc)
+        ssl_creds.compose(creds)
+      else
+        :this_channel_is_insecure
+      end
 
       @grpc_stub
     end
