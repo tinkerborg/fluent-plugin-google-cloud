@@ -18,6 +18,10 @@ require 'mocha/test_unit'
 require 'webmock/test_unit'
 require 'prometheus/client'
 
+require 'fluent/engine'
+require 'fluent/event'
+require 'fluent/test/input_test'
+
 require_relative 'constants'
 
 # Unit tests for Google Cloud Logging plugin

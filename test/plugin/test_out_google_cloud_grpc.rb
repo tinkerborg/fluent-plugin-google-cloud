@@ -15,6 +15,7 @@
 require 'grpc'
 
 require_relative 'base_test'
+require_relative 'test_driver'
 
 # Unit tests for Google Cloud Logging plugin
 class GoogleCloudOutputGRPCTest < Test::Unit::TestCase
@@ -130,6 +131,54 @@ class GoogleCloudOutputGRPCTest < Test::Unit::TestCase
     end
   end
 
+  def test_should_group_log_tags
+    setup_gce_metadata_stubs
+    log_entries_count = 5
+    [
+      [APPLICATION_DEFAULT_CONFIG, log_entries_count, log_entries_count],
+      [DISABLE_SHOULD_GROUP_LOG_TAGS_CONFIG, 1, log_entries_count]
+    ].each do |(config, successful_requests_count, ingested_entries_count)|
+      setup_prometheus
+      setup_logging_stubs(false, 0, 'SomeMessage') do
+        d = create_driver(config + USE_GRPC_CONFIG + PROMETHEUS_ENABLE_CONFIG,
+                          'test', true)
+        log_entries_count.times do |i|
+          d.emit("tag#{i}", 'message' => log_entry(0))
+        end
+        d.run
+      end
+      assert_prometheus_metric_value(:stackdriver_successful_requests_count,
+                                     successful_requests_count,
+                                     grpc: true, code: 0)
+      assert_prometheus_metric_value(:stackdriver_ingested_entries_count,
+                                     ingested_entries_count,
+                                     grpc: true, code: 0)
+    end
+  end
+
+  def test_log_name_when_should_group_log_tags_disabled
+    setup_gce_metadata_stubs
+    log_entries_count = 5
+    setup_prometheus
+    setup_logging_stubs(false, 0, 'SomeMessage') do
+      d = create_driver(DISABLE_SHOULD_GROUP_LOG_TAGS_CONFIG +
+                        USE_GRPC_CONFIG + PROMETHEUS_ENABLE_CONFIG,
+                        'test', true)
+      log_entries_count.times do |i|
+        d.emit("tag#{i}", 'message' => log_entry(0))
+      end
+      d.run
+    end
+    emit_index = 0
+    @requests_sent.each do |request_sent|
+      request_sent.entries.each do |entry|
+        assert_equal "projects/test-project-id/logs/tag#{emit_index}",
+                     entry.log_name
+        emit_index += 1
+      end
+    end
+  end
+
   # This test looks similar between the grpc and non-grpc paths except that when
   # parsing "105", the grpc path responds with "DEBUG", while the non-grpc path
   # responds with "100".
@@ -223,10 +272,18 @@ class GoogleCloudOutputGRPCTest < Test::Unit::TestCase
   # grpc enabled. The signature of this method is different between the grpc
   # path and the non-grpc path. For grpc, an additional grpc stub class can be
   # passed in to construct the mock used by the test driver.
-  def create_driver(conf = APPLICATION_DEFAULT_CONFIG, tag = 'test')
+  def create_driver(conf = APPLICATION_DEFAULT_CONFIG,
+                    tag = 'test',
+                    multi_tags = false)
     conf += USE_GRPC_CONFIG
-    Fluent::Test::BufferedOutputTestDriver.new(
-      GoogleCloudOutputWithGRPCMock.new(@grpc_stub), tag).configure(conf, true)
+    if multi_tags
+      Fluent::Test::MultiTagBufferedOutputTestDriver.new(
+        GoogleCloudOutputWithGRPCMock.new(@grpc_stub)).configure(conf, true)
+    else
+      Fluent::Test::BufferedOutputTestDriver.new(
+        GoogleCloudOutputWithGRPCMock.new(
+          @grpc_stub), tag).configure(conf, true)
+    end
   end
 
   # Google Cloud Fluent output stub with grpc mock.
