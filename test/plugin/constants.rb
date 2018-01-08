@@ -166,6 +166,10 @@ module Constants
     detect_subservice false
   ).freeze
 
+  DISABLE_SHOULD_GROUP_LOG_TAGS_CONFIG = %(
+    should_group_log_tags false
+  ).freeze
+
   PROMETHEUS_ENABLE_CONFIG = %(
     enable_monitoring true
     monitoring_type prometheus

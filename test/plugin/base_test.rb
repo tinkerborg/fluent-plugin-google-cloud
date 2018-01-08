@@ -605,6 +605,18 @@ module BaseTest
     end
   end
 
+  def test_configure_should_group_log_tags
+    setup_gce_metadata_stubs
+    {
+      APPLICATION_DEFAULT_CONFIG => true,
+      DISABLE_SHOULD_GROUP_LOG_TAGS_CONFIG => false
+    }.each do |(config, should_group_log_tags)|
+      d = create_driver(config)
+      assert_equal should_group_log_tags,
+                   d.instance.instance_variable_get(:@should_group_log_tags)
+    end
+  end
+
   def test_timestamps
     setup_gce_metadata_stubs
     current_time = Time.now

@@ -341,6 +341,10 @@ module Fluent
     config_param :metadata_agent_url, :string,
                  :default => DEFAULT_METADATA_AGENT_URL
 
+    # Whether to group log entries with different log tags into different
+    # requests when talking to Stackdriver Logging API.
+    config_param :should_group_log_tags, :bool, :default => true
+
     # rubocop:enable Style/HashSyntax
 
     # TODO: Add a log_name config option rather than just using the tag?
@@ -592,17 +596,42 @@ module Fluent
               entries: entries)
         end
       end
-      requests_to_send.each do |request|
-        client = api_client
-        if @use_grpc
-          write_request_via_grpc(client, request)
-        else
-          write_request_via_http(client, request)
+      if @should_group_log_tags
+        requests_to_send.each do |request|
+          write_request(request)
         end
+      else
+        # Send all entries via one request.
+        combined_entries = []
+        requests_to_send.each do |request|
+          request.entries.each do |entry|
+            new_entry = entry.dup
+            new_entry.log_name = request.log_name
+            combined_entries << new_entry
+          end
+        end
+        combined_request =
+          if @use_grpc
+            Google::Logging::V2::WriteLogEntriesRequest.new(
+              entries: combined_entries)
+          else
+            Google::Apis::LoggingV2::WriteLogEntriesRequest.new(
+              entries: combined_entries)
+          end
+        write_request(combined_request)
       end
     end
 
     private
+
+    def write_request(request)
+      client = api_client
+      if @use_grpc
+        write_request_via_grpc(client, request)
+      else
+        write_request_via_http(client, request)
+      end
+    end
 
     def write_request_via_grpc(client, request)
       entries_count = request.entries.length
