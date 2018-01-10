@@ -611,11 +611,12 @@ module Fluent
 
     def write_request(request)
       client = api_client
-      if @use_grpc
-        write_request_via_grpc(client, request)
-      else
-        write_request_via_http(client, request)
-      end
+      # Does the actual write to the cloud logging api.
+      send(write_request_function, client, request)
+    end
+
+    def write_request_function
+      @use_grpc ? 'write_request_via_grpc' : 'write_request_via_http'
     end
 
     def write_request_via_grpc(client, request)
